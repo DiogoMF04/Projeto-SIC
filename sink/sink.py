@@ -252,11 +252,28 @@ class SinkNode:
             self.gui.log(msg, level)
             
     def _gui_broadcast(self, target: str, msg: str):
-        pass
-        
+        """Envia mensagem para um nó específico ou broadcast"""
+        payload = msg.encode()
+        if target == "ALL":
+            for addr in self.connected_nodes.keys():
+                asyncio.create_task(self.ble.send_data(addr,
+                    struct.pack(">B", MessageType.DATA) + payload))
+        else:
+            # Envia para nó específico
+            for node in self.connected_nodes.values():
+                if node.nid.hex()[:16] == target:
+                    asyncio.create_task(self.ble.send_data(node.address,
+                        struct.pack(">B", MessageType.DATA) + payload))
+                    break
     def _gui_command(self, cmd: str):
-        pass
-        
+        """Processa comando da GUI"""
+        if cmd == "refresh":
+            # Força atualização de topologia
+            for addr in self.connected_nodes.keys():
+                asyncio.create_task(self._send_topology(addr))
+        elif cmd == "diagnostics":
+            if self.diagnostics:
+                self.diagnostics.run_diagnostics()        
     async def _gui_update_loop(self):
         while self.running and self.gui:
             await asyncio.sleep(2)
